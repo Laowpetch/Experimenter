@@ -1,19 +1,24 @@
 import cv2 as cv 
 import numpy as np
 import math
-
+import pickle as pkl
+import os
 from realsense import Camera
 from lite6 import Manipulator
 
 class utils:
     def __init__(self):
-        self.rotationMatrix = np.array([[ 0.15270852,  0.07282495 , 0.98558441],
- [ 0.48849825,  0.86136814 ,-0.13933554],
- [-0.85909811,  0.50273398 , 0.09596339]])
+        self.filename = 'calib_data.pkl'
+        if os.path.exists(self.filename):
+            with open(self.filename, "rb") as file:
+                self.rotationMatrix, self.translationVector = pkl.load(file)
+#         self.rotationMatrix = np.array([[ 0.15270852,  0.07282495 , 0.98558441],
+#  [ 0.48849825,  0.86136814 ,-0.13933554],
+#  [-0.85909811,  0.50273398 , 0.09596339]])
 
-        self.translationVector = np.array([[  76.93516569],
- [  59.83190353],
- [-172.75037391]])
+#         self.translationVector = np.array([[  76.93516569],
+#  [  59.83190353],
+#  [-172.75037391]])
 
     def calibration(self):
         arm = Manipulator('192.168.1.157')
@@ -22,7 +27,7 @@ class utils:
         row = 6
         column = 4
         pattern_size = [row , column]
-        space = 10
+        space = 10 # ! mm : Check for detail
         obj_points = np.array([])
         for y in range(column):
             for x in range(row):
@@ -34,9 +39,9 @@ class utils:
         print("CamMatrix",camMatrix)
         distCoeff = np.array([0,0,0,0,0])
 
-        RVEC_t2c = np.array([])
+        ROTMAT_t2c = np.array([])
         TVEC_t2c = np.array([])
-        RVEC_g2b = np.array([])
+        ROTMAT_g2b = np.array([])
         TVEC_g2b = np.array([])
         keeploopalive = 1
         while (keeploopalive):
@@ -47,55 +52,54 @@ class utils:
                 k = cv.waitKey(50)
                 if k == ord('s'):
                     print('Pressed : s')
-                    count+=1
                     break
                 elif k == ord('q'):
                     print('Pressed : q')
                     keeploopalive = 0
-                    count+=1
                     break
             found ,img_points = cv.findCirclesGrid(frame, pattern_size ,flags=cv.CALIB_CB_SYMMETRIC_GRID +cv.CALIB_CB_CLUSTERING)
             if not found: 
                 print("img point not found ")
-                count-=1
                 continue
             img_points = np.array(img_points)
             if len(img_points) != len(obj_points):
-                count-=1
                 print("not equal ")
                 continue
 
-            # print("len point",len(img_points), " ", len(obj_points))
-            # print(img_points)
-            # * target 2 cam
+            # * get target 2 cam
             _,rvec_c2t,tvec_c2t = cv.solvePnP(obj_points, img_points, camMatrix,distCoeff )
             aff_t2c = self.inverseAffine(self.createAffine(rvec_c2t, tvec_c2t))
-            rvec_t2c = aff_t2c[:3, :3]
+            rotmat_t2c = aff_t2c[:3, :3]
             tvec_t2c = aff_t2c[:3, 3]
-            print("t2c", rvec_t2c,tvec_t2c) 
-            # print("t2c",rvec_t2c,tvec_t2c)
-            # * get robot position
-            _ , armposition = arm.get_position()
-            rvec_g2b, tvec_g2b = self.getrobotTransform(*armposition)
+            print("t2c", rotmat_t2c,tvec_t2c) 
+            
+            # * get gripper 2 base
+            rvec_g2b, tvec_g2b = self.getrobotTransform(*arm.get_position()[1])
             aff_g2b = self.inverseAffine(self.createAffine(rvec_g2b, tvec_g2b))
-            rvec_g2b = aff_g2b[:3, :3]
+            rotmat_g2b = aff_g2b[:3, :3]
             tvec_g2b = aff_g2b[:3, 3]
+            
             # * gather to RVEC TVEC
-            RVEC_t2c = np.append(RVEC_t2c,rvec_t2c)
+            ROTMAT_t2c = np.append(ROTMAT_t2c,rotmat_t2c)
             TVEC_t2c = np.append(TVEC_t2c,tvec_t2c)
-            RVEC_g2b = np.append(RVEC_g2b,rvec_g2b)
+            ROTMAT_g2b = np.append(ROTMAT_g2b,rotmat_g2b)
             TVEC_g2b = np.append(TVEC_g2b,tvec_g2b)
             
+            count += 1
             print(count)
             print("successfully add")
 
-        RVEC_t2c = RVEC_t2c.reshape(count,3,3)
+        ROTMAT_t2c = ROTMAT_t2c.reshape(count,3,3)
         TVEC_t2c = TVEC_t2c.reshape(count,3,1)
-        RVEC_g2b = RVEC_g2b.reshape(count,3,3)
+        ROTMAT_g2b = ROTMAT_g2b.reshape(count,3,3)
         TVEC_g2b = TVEC_g2b.reshape(count,3,1)
         # cam 2 gripper 
-        rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_g2b,TVEC_g2b,RVEC_t2c,TVEC_t2c)
+        rvec_c2g , tvec_c2g = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c)
         print(rvec_c2g, tvec_c2g)
+        key = input("Press 'y' to save: ")
+        if key.lower() == 'y':
+            with open(self.filename, "wb") as file:
+                pkl.dump((rvec_c2g, tvec_c2g), file)
         return rvec_c2g, tvec_c2g
     
     def euler_to_rotmat(self,roll, pitch, yaw) -> np.ndarray:
@@ -121,26 +125,23 @@ class utils:
                             [np.sin(roll), np.cos(roll), 0],
                             [0, 0, 1]])
 
-        # Compute the combined rotation matrix
         rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
 
         return rotation_matrix      
     def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
-            # gripper rotation
-            roll = math.radians(roll)
-            pitch = math.radians(pitch)
-            yaw = math.radians(yaw)
-            rotation_matrix = self.euler_to_rotmat(roll, pitch, yaw)
-            rvec, _ = cv.Rodrigues(rotation_matrix)
-            
-            # gripper 2 base
-            rvec_g2b = np.array(rvec).reshape(3,1)
-            # print("rvecg2b" ,rvec_g2b )
-            tvec_g2b = np.array([x,y,z]).reshape(3,1)
-            # print("tvecg2b" ,tvec_g2b )
-            # print("g2b",rvec_g2b.shape,tvec_g2b.shape)
-            
-            return rvec_g2b, tvec_g2b
+        
+        # gripper rotation
+        roll = math.radians(roll)
+        pitch = math.radians(pitch)
+        yaw = math.radians(yaw)
+        rotation_matrix = self.euler_to_rotmat(roll, pitch, yaw)
+        rvec, _ = cv.Rodrigues(rotation_matrix)
+        
+        # gripper 2 base
+        rvec_b2g = np.array(rvec).reshape(3,1)
+        tvec_b2g = np.array([x,y,z]).reshape(3,1)
+        
+        return rvec_b2g, tvec_b2g
         
     def createAffine(self, r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
         R = []
@@ -164,12 +165,11 @@ class utils:
         size = 24
         obj_points = []
         obj_points =np.append(obj_points,np.array([0,0,0]))
-        obj_points =np.append(obj_points,np.array([24,0,0]))
-        obj_points =np.append(obj_points,np.array([24,24,0]))
-        obj_points =np.append(obj_points,np.array([0,24,0]))
+        obj_points =np.append(obj_points,np.array([size,0,0]))
+        obj_points =np.append(obj_points,np.array([size,size,0]))
+        obj_points =np.append(obj_points,np.array([0,size,0]))
         obj_points = obj_points.reshape(4,3)
         if num_id in np.ravel(ids) :
-            # print(len(obj_points),len(corners[num_id-1][0]))
             _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
             return self.createAffine(rvec,tvec)
         else :
