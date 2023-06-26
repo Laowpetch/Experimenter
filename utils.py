@@ -93,13 +93,35 @@ class utils:
         rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_t2c,TVEC_t2c,RVEC_g2b,TVEC_g2b)
 
         return rvec_c2g, tvec_c2g
+    def euler_to_rotmat(self,roll, pitch, yaw):
+        # Convert roll, pitch, and yaw to radians
+        roll_rad = np.radians(roll)
+        pitch_rad = np.radians(pitch)
+        yaw_rad = np.radians(yaw)
 
+        # Calculate the rotation matrices around each axis
+        rotation_x = np.array([[1, 0, 0],
+                            [0, np.cos(roll_rad), -np.sin(roll_rad)],
+                            [0, np.sin(roll_rad), np.cos(roll_rad)]])
+
+        rotation_y = np.array([[np.cos(pitch_rad), 0, np.sin(pitch_rad)],
+                            [0, 1, 0],
+                            [-np.sin(pitch_rad), 0, np.cos(pitch_rad)]])
+
+        rotation_z = np.array([[np.cos(yaw_rad), -np.sin(yaw_rad), 0],
+                            [np.sin(yaw_rad), np.cos(yaw_rad), 0],
+                            [0, 0, 1]])
+
+        # Compute the combined rotation matrix
+        rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
+
+        return rotation_matrix      
     def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
             # gripper rotation
             roll = math.radians(roll)
             pitch = math.radians(pitch)
             yaw = math.radians(yaw)
-            rotation_matrix, _ = cv.Rodrigues(np.array([roll, pitch, yaw]))
+            rotation_matrix = self.euler_to_rotmat(roll, pitch, yaw)
             rvec, _ = cv.Rodrigues(rotation_matrix)
             
             # gripper 2 base
