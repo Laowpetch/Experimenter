@@ -7,13 +7,13 @@ from lite6 import Manipulator
 
 class utils:
     def __init__(self):
-        self.rotationMatrix = np.array([[ 0.69722593 ,-0.71475094, -0.05483702]
-                                        , [ 0.69678046  ,0.6936936 , -0.18244501],
-                                        [ 0.16844283 , 0.08899603 , 0.98168565]])
+        self.rotationMatrix = np.array([[ 0.15270852,  0.07282495 , 0.98558441],
+ [ 0.48849825,  0.86136814 ,-0.13933554],
+ [-0.85909811,  0.50273398 , 0.09596339]])
 
-        self.translationVector = np.array([[  68.25932133],
-                                            [ -30.09671585],
-                                            [-145.24536271]])
+        self.translationVector = np.array([[  76.93516569],
+ [  59.83190353],
+ [-172.75037391]])
 
     def calibration(self):
         arm = Manipulator('192.168.1.157')
@@ -30,7 +30,6 @@ class utils:
         print("obj point",obj_points)
         obj_points = obj_points.reshape(row*column,3)
 
-        # ! this camMatrix is wrong
         camMatrix = camera.cameraMatrix()
         print("CamMatrix",camMatrix)
         distCoeff = np.array([0,0,0,0,0])
@@ -58,16 +57,21 @@ class utils:
             found ,img_points = cv.findCirclesGrid(frame, pattern_size ,flags=cv.CALIB_CB_SYMMETRIC_GRID +cv.CALIB_CB_CLUSTERING)
             if not found: 
                 print("img point not found ")
+                count-=1
                 continue
             img_points = np.array(img_points)
             if len(img_points) != len(obj_points):
+                count-=1
                 print("not equal ")
                 continue
 
             # print("len point",len(img_points), " ", len(obj_points))
             # print(img_points)
             # * target 2 cam
-            _,rvec_t2c,tvec_t2c = cv.solvePnP(obj_points, img_points, camMatrix,distCoeff )
+            _,rvec_c2t,tvec_c2t = cv.solvePnP(obj_points, img_points, camMatrix,distCoeff )
+            aff_t2c = self.inverseAffine(self.createAffine(rvec_c2t, tvec_c2t))
+            rvec_t2c = aff_t2c[:3, :3]
+            tvec_t2c = aff_t2c[:3, 3]
             print("t2c", rvec_t2c,tvec_t2c) 
             # print("t2c",rvec_t2c,tvec_t2c)
             # * get robot position
@@ -85,31 +89,29 @@ class utils:
             print(count)
             print("successfully add")
 
-        RVEC_t2c = RVEC_t2c.reshape(count,3,1)
+        RVEC_t2c = RVEC_t2c.reshape(count,3,3)
         TVEC_t2c = TVEC_t2c.reshape(count,3,1)
         RVEC_g2b = RVEC_g2b.reshape(count,3,3)
         TVEC_g2b = TVEC_g2b.reshape(count,3,1)
         # cam 2 gripper 
         rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_t2c,TVEC_t2c,RVEC_g2b,TVEC_g2b)
-
+        print(rvec_c2g, tvec_c2g)
         return rvec_c2g, tvec_c2g
     def euler_to_rotmat(self,roll, pitch, yaw):
         # Convert roll, pitch, and yaw to radians
-        roll_rad = np.radians(roll)
-        pitch_rad = np.radians(pitch)
-        yaw_rad = np.radians(yaw)
+ 
 
         # Calculate the rotation matrices around each axis
         rotation_x = np.array([[1, 0, 0],
-                            [0, np.cos(roll_rad), -np.sin(roll_rad)],
-                            [0, np.sin(roll_rad), np.cos(roll_rad)]])
+                            [0, np.cos(yaw), -np.sin(yaw)],
+                            [0, np.sin(yaw), np.cos(yaw)]])
 
-        rotation_y = np.array([[np.cos(pitch_rad), 0, np.sin(pitch_rad)],
+        rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
                             [0, 1, 0],
-                            [-np.sin(pitch_rad), 0, np.cos(pitch_rad)]])
+                            [-np.sin(pitch), 0, np.cos(pitch)]])
 
-        rotation_z = np.array([[np.cos(yaw_rad), -np.sin(yaw_rad), 0],
-                            [np.sin(yaw_rad), np.cos(yaw_rad), 0],
+        rotation_z = np.array([[np.cos(roll), -np.sin(roll), 0],
+                            [np.sin(roll), np.cos(roll), 0],
                             [0, 0, 1]])
 
         # Compute the combined rotation matrix
@@ -147,6 +149,7 @@ class utils:
     def inverseAffine(self, affine_matrix:np.ndarray):
         R = affine_matrix[:3, :3]
         tvec = affine_matrix[:3, 3]
+        # inv_R = np.linalg.inv(R)
         inv_R = np.transpose(R)
         inv_t = - inv_R @ tvec
         return self.createAffine(inv_R,inv_t)
@@ -160,11 +163,21 @@ class utils:
         obj_points =np.append(obj_points,np.array([0,24,0]))
         obj_points = obj_points.reshape(4,3)
         if num_id in np.ravel(ids) :
-            print(len(obj_points),len(corners[num_id-1][0]))
+            # print(len(obj_points),len(corners[num_id-1][0]))
             _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
-            return self.inverseAffine(self.createAffine(rvec,tvec))
+            return self.createAffine(rvec,tvec)
         else :
             return None
     
     def c2g(self,rotationMatrix,TranslationVector):
         return self.createAffine(rotationMatrix,TranslationVector)
+
+if __name__ == "__main__":
+    utils().calibration()
+    # test = utils()
+    # aff = test.createAffine(test.rotationMatrix,test.translationVector)
+    # a = (test.inverseAffine(aff))
+    # b = test.inverseAffine(a)
+    # print(aff)
+    # print(a)
+    # print(b)
