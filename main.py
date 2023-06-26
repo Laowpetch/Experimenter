@@ -27,7 +27,7 @@ class Main:
         print("b2c",self.b2c)
         self.result_position = self.c2t_affine @ self.b2c
         print("result_position",self.result_position)
-        #self.arm.grabfromabove(self.result_position[:3, 3])
+        self.arm.grabfromabove(self.result_position[:3, 3])
         # key = cv.waitKey(1)
         # if key == 27:
         # 	break

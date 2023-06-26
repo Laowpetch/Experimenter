@@ -7,13 +7,13 @@ from lite6 import Manipulator
 
 class utils:
     def __init__(self):
-        self.rotationMatrix = np.array([[ 0.90768759 , 0.41787402 , 0.0385297 ],
-                                        [-0.41963412 , 0.90312   ,  0.0910026 ],
-                                        [ 0.00323068, -0.09877031 , 0.99510501]])
+        self.rotationMatrix = np.array([[ 0.69722593 ,-0.71475094, -0.05483702]
+                                        , [ 0.69678046  ,0.6936936 , -0.18244501],
+                                        [ 0.16844283 , 0.08899603 , 0.98168565]])
 
-        self.translationVector = np.array([[  43.85692638],
-                                            [  12.11060211],
-                                            [-208.0822928 ]])
+        self.translationVector = np.array([[  68.25932133],
+                                            [ -30.09671585],
+                                            [-145.24536271]])
 
     def calibration(self):
         arm = Manipulator('192.168.1.157')
