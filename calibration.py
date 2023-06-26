@@ -1,13 +1,13 @@
-from utils import *
+import numpy as np
+import os
 import pickle as pkl
 from realsense import Camera
 from lite6 import Manipulator
-import numpy as np
-import os
+from utils import *
 
 class HandEyeCalibration:
     def __init__(self):
-        # ! use self only for union and const data
+        # ! use self only for shared and const data
         self.filename = 'calib_data.pkl'
         if os.path.exists(self.filename):
             with open(self.filename, "rb") as file:
@@ -70,7 +70,7 @@ class HandEyeCalibration:
 
             # * get target 2 cam
             _,rvec_c2t,tvec_c2t = cv.solvePnP(obj_points, img_points, camMatrix,distCoeff )
-            aff_t2c = self.inverseAffine(createAffine(rvec_c2t, tvec_c2t))
+            aff_t2c = inverseAffine(createAffine(rvec_c2t, tvec_c2t))
             rotmat_t2c = aff_t2c[:3, :3]
             tvec_t2c = aff_t2c[:3, 3]
             print("t2c", rotmat_t2c,tvec_t2c) 
