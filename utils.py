@@ -27,7 +27,7 @@ class utils:
         for y in range(column):
             for x in range(row):
                 obj_points =np.append(obj_points,np.array([x*space,y*space,0]))
-        print("obj point",obj_points)
+        # print("obj point",obj_points)
         obj_points = obj_points.reshape(row*column,3)
 
         camMatrix = camera.cameraMatrix()
@@ -94,14 +94,21 @@ class utils:
         RVEC_g2b = RVEC_g2b.reshape(count,3,3)
         TVEC_g2b = TVEC_g2b.reshape(count,3,1)
         # cam 2 gripper 
-        rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_t2c,TVEC_t2c,RVEC_g2b,TVEC_g2b)
+        rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_g2b,TVEC_g2b,RVEC_t2c,TVEC_t2c)
         print(rvec_c2g, tvec_c2g)
         return rvec_c2g, tvec_c2g
-    def euler_to_rotmat(self,roll, pitch, yaw):
-        # Convert roll, pitch, and yaw to radians
- 
+    
+    def euler_to_rotmat(self,roll, pitch, yaw) -> np.ndarray:
+        """convert Eular Angle in degrees to Rotation Matrix
 
-        # Calculate the rotation matrices around each axis
+        Args:
+            roll (double): _description_
+            pitch (double): _description_
+            yaw (double): _description_
+
+        Returns:
+            np.ndarray: 3x3 rotation matrix
+        """        
         rotation_x = np.array([[1, 0, 0],
                             [0, np.cos(yaw), -np.sin(yaw)],
                             [0, np.sin(yaw), np.cos(yaw)]])
@@ -149,7 +156,6 @@ class utils:
     def inverseAffine(self, affine_matrix:np.ndarray):
         R = affine_matrix[:3, :3]
         tvec = affine_matrix[:3, 3]
-        # inv_R = np.linalg.inv(R)
         inv_R = np.transpose(R)
         inv_t = - inv_R @ tvec
         return self.createAffine(inv_R,inv_t)
