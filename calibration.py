@@ -22,7 +22,7 @@ class HandEyeCalibration:
 #  [  59.83190353],
 #  [-172.75037391]])
 
-    def calibrate(self):
+    def calibrate(self) :
         arm = Manipulator('192.168.1.157')
         camera = Camera()
         count  = 0
@@ -111,6 +111,7 @@ class HandEyeCalibration:
         return self.c2g
     
 if __name__ == '__main__':
-    rMat,tvec = HandEyeCalibration().calibrate()
-    print(rMat)
-    print(tvec)
+    calibration = HandEyeCalibration()
+    calibration.calibrate()
+    c2g = calibration.getcalibration()
+    print(c2g)
