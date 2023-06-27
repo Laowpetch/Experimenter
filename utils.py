@@ -114,7 +114,7 @@ class utils:
 
         # Compute the combined rotation matrix
         rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
-        print('rotation_matrix: '+str(rotation_matrix))
+
         return rotation_matrix      
     def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
             # gripper rotation
@@ -162,7 +162,7 @@ class utils:
         if num_id in np.ravel(ids) :
             print(len(obj_points),len(corners[num_id-1][0]))
             _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
-            return (self.createAffine(rvec,tvec))
+            return self.inverseAffine(self.createAffine(rvec,tvec))
         else :
             return None
     
