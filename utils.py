@@ -2,169 +2,79 @@ import cv2 as cv
 import numpy as np
 import math
 
-from realsense import Camera
-from lite6 import Manipulator
+def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
+    """convert Eular Angle in degrees to Rotation Matrix
 
-class utils:
-    def __init__(self):
-        self.rotationMatrix = np.array([[ 0.69722593 ,-0.71475094, -0.05483702]
-                                        , [ 0.69678046  ,0.6936936 , -0.18244501],
-                                        [ 0.16844283 , 0.08899603 , 0.98168565]])
+    Args:
+        roll (double): _description_
+        pitch (double): _description_
+        yaw (double): _description_
 
-        self.translationVector = np.array([[  68.25932133],
-                                            [ -30.09671585],
-                                            [-145.24536271]])
+    Returns:
+        np.ndarray: 3x3 rotation matrix
+    """        
+    rotation_x = np.array([[1, 0, 0],
+                        [0, np.cos(yaw), -np.sin(yaw)],
+                        [0, np.sin(yaw), np.cos(yaw)]])
 
-    def calibration(self):
-        arm = Manipulator('192.168.1.157')
-        camera = Camera()
-        count  = 0
-        row = 6
-        column = 4
-        pattern_size = [row , column]
-        space = 10
-        obj_points = np.array([])
-        for y in range(column):
-            for x in range(row):
-                obj_points =np.append(obj_points,np.array([x*space,y*space,0]))
-        print("obj point",obj_points)
-        obj_points = obj_points.reshape(row*column,3)
+    rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                        [0, 1, 0],
+                        [-np.sin(pitch), 0, np.cos(pitch)]])
 
-        # ! this camMatrix is wrong
-        camMatrix = camera.cameraMatrix()
-        print("CamMatrix",camMatrix)
-        distCoeff = np.array([0,0,0,0,0])
+    rotation_z = np.array([[np.cos(roll), -np.sin(roll), 0],
+                        [np.sin(roll), np.cos(roll), 0],
+                        [0, 0, 1]])
 
-        RVEC_t2c = np.array([])
-        TVEC_t2c = np.array([])
-        RVEC_g2b = np.array([])
-        TVEC_g2b = np.array([])
-        keeploopalive = 1
-        while (keeploopalive):
-            frame = []
-            while(1):
-                _,frame,_ = camera.get_frame_stream()
-                cv.imshow("windows",frame)
-                k = cv.waitKey(50)
-                if k == ord('s'):
-                    print('Pressed : s')
-                    count+=1
-                    break
-                elif k == ord('q'):
-                    print('Pressed : q')
-                    keeploopalive = 0
-                    count+=1
-                    break
-            found ,img_points = cv.findCirclesGrid(frame, pattern_size ,flags=cv.CALIB_CB_SYMMETRIC_GRID +cv.CALIB_CB_CLUSTERING)
-            if not found: 
-                print("img point not found ")
-                continue
-            img_points = np.array(img_points)
-            if len(img_points) != len(obj_points):
-                print("not equal ")
-                continue
+    rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
 
-            # print("len point",len(img_points), " ", len(obj_points))
-            # print(img_points)
-            # * target 2 cam
-            _,rvec_t2c,tvec_t2c = cv.solvePnP(obj_points, img_points, camMatrix,distCoeff )
-            print("t2c", rvec_t2c,tvec_t2c) 
-            # print("t2c",rvec_t2c,tvec_t2c)
-            # * get robot position
-            _ , armposition = arm.get_position()
-            rvec_g2b, tvec_g2b = self.getrobotTransform(*armposition)
-            aff_g2b = self.inverseAffine(self.createAffine(rvec_g2b, tvec_g2b))
-            rvec_g2b = aff_g2b[:3, :3]
-            tvec_g2b = aff_g2b[:3, 3]
-            # * gather to RVEC TVEC
-            RVEC_t2c = np.append(RVEC_t2c,rvec_t2c)
-            TVEC_t2c = np.append(TVEC_t2c,tvec_t2c)
-            RVEC_g2b = np.append(RVEC_g2b,rvec_g2b)
-            TVEC_g2b = np.append(TVEC_g2b,tvec_g2b)
-            
-            print(count)
-            print("successfully add")
-
-        RVEC_t2c = RVEC_t2c.reshape(count,3,1)
-        TVEC_t2c = TVEC_t2c.reshape(count,3,1)
-        RVEC_g2b = RVEC_g2b.reshape(count,3,3)
-        TVEC_g2b = TVEC_g2b.reshape(count,3,1)
-        # cam 2 gripper 
-        rvec_c2g , tvec_c2g = cv.calibrateHandEye(RVEC_t2c,TVEC_t2c,RVEC_g2b,TVEC_g2b)
-
-        return rvec_c2g, tvec_c2g
-    def euler_to_rotmat(self,roll, pitch, yaw):
-        # Convert roll, pitch, and yaw to radians
-        roll_rad = np.radians(roll)
-        pitch_rad = np.radians(pitch)
-        yaw_rad = np.radians(yaw)
-
-        # Calculate the rotation matrices around each axis
-        rotation_x = np.array([[1, 0, 0],
-                            [0, np.cos(roll_rad), -np.sin(roll_rad)],
-                            [0, np.sin(roll_rad), np.cos(roll_rad)]])
-
-        rotation_y = np.array([[np.cos(pitch_rad), 0, np.sin(pitch_rad)],
-                            [0, 1, 0],
-                            [-np.sin(pitch_rad), 0, np.cos(pitch_rad)]])
-
-        rotation_z = np.array([[np.cos(yaw_rad), -np.sin(yaw_rad), 0],
-                            [np.sin(yaw_rad), np.cos(yaw_rad), 0],
-                            [0, 0, 1]])
-
-        # Compute the combined rotation matrix
-        rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
-
-        return rotation_matrix      
-    def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
-            # gripper rotation
-            roll = math.radians(roll)
-            pitch = math.radians(pitch)
-            yaw = math.radians(yaw)
-            rotation_matrix = self.euler_to_rotmat(roll, pitch, yaw)
-            rvec, _ = cv.Rodrigues(rotation_matrix)
-            
-            # gripper 2 base
-            rvec_g2b = np.array(rvec).reshape(3,1)
-            # print("rvecg2b" ,rvec_g2b )
-            tvec_g2b = np.array([x,y,z]).reshape(3,1)
-            # print("tvecg2b" ,tvec_g2b )
-            # print("g2b",rvec_g2b.shape,tvec_g2b.shape)
-            
-            return rvec_g2b, tvec_g2b
-        
-    def createAffine(self, r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
-        R = []
-        if r.shape == (3,1):
-            R ,_  = cv.Rodrigues(r)
-        elif r.shape == (3,3) :
-            R = r
-        affine_matrix = np.eye(4)
-        affine_matrix[:3, :3] = R
-        affine_matrix[:3, 3] = tvec.reshape(3)
-        return affine_matrix
-
-    def inverseAffine(self, affine_matrix:np.ndarray):
-        R = affine_matrix[:3, :3]
-        tvec = affine_matrix[:3, 3]
-        inv_R = np.transpose(R)
-        inv_t = - inv_R @ tvec
-        return self.createAffine(inv_R,inv_t)
-
-    def getArucoPosition(self, num_id,camera_matrix, ids, corners):
-        size = 24
-        obj_points = []
-        obj_points =np.append(obj_points,np.array([0,0,0]))
-        obj_points =np.append(obj_points,np.array([24,0,0]))
-        obj_points =np.append(obj_points,np.array([24,24,0]))
-        obj_points =np.append(obj_points,np.array([0,24,0]))
-        obj_points = obj_points.reshape(4,3)
-        if num_id in np.ravel(ids) :
-            print(len(obj_points),len(corners[num_id-1][0]))
-            _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
-            return self.inverseAffine(self.createAffine(rvec,tvec))
-        else :
-            return None
+    return rotation_matrix      
+def getrobotTransform(x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
     
-    def c2g(self,rotationMatrix,TranslationVector):
-        return self.createAffine(rotationMatrix,TranslationVector)
+    # gripper rotation
+    roll = math.radians(roll)
+    pitch = math.radians(pitch)
+    yaw = math.radians(yaw)
+    rotation_matrix = euler_to_rotmat(roll, pitch, yaw)
+    rvec, _ = cv.Rodrigues(rotation_matrix)
+    
+    # gripper 2 base
+    rvec_b2g = np.array(rvec).reshape(3,1)
+    tvec_b2g = np.array([x,y,z]).reshape(3,1)
+    
+    return rvec_b2g, tvec_b2g
+    
+def createAffine(r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
+    R = []
+    if r.shape == (3,1):
+        R ,_  = cv.Rodrigues(r)
+    elif r.shape == (3,3) :
+        R = r
+    affine_matrix = np.eye(4)
+    affine_matrix[:3, :3] = R
+    affine_matrix[:3, 3] = tvec.reshape(3)
+    return affine_matrix
+
+def inverseAffine(affine_matrix:np.ndarray):
+    R = affine_matrix[:3, :3]
+    tvec = affine_matrix[:3, 3]
+    inv_R = np.transpose(R)
+    inv_t = - inv_R @ tvec
+    return createAffine(inv_R,inv_t)
+
+def getArucoPosition( num_id,camera_matrix, ids, corners):
+    size = 24
+    obj_points = []
+    obj_points =np.append(obj_points,np.array([0,0,0]))
+    obj_points =np.append(obj_points,np.array([size,0,0]))
+    obj_points =np.append(obj_points,np.array([size,size,0]))
+    obj_points =np.append(obj_points,np.array([0,size,0]))
+    obj_points = obj_points.reshape(4,3)
+    if num_id in np.ravel(ids) :
+        _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
+        return createAffine(rvec,tvec)
+    else :
+        return None
+    
+# ! this func is no need
+# def c2g(self,rotationMatrix,TranslationVector):
+#     return self.createAffine(rotationMatrix,TranslationVector)
