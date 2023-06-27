@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 import math
 
-def euler_to_rotmat(self,roll, pitch, yaw) -> np.ndarray:
+def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
     """convert Eular Angle in degrees to Rotation Matrix
 
     Args:
@@ -28,13 +28,13 @@ def euler_to_rotmat(self,roll, pitch, yaw) -> np.ndarray:
     rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
 
     return rotation_matrix      
-def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
+def getrobotTransform(x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
     
     # gripper rotation
     roll = math.radians(roll)
     pitch = math.radians(pitch)
     yaw = math.radians(yaw)
-    rotation_matrix = self.euler_to_rotmat(roll, pitch, yaw)
+    rotation_matrix = euler_to_rotmat(roll, pitch, yaw)
     rvec, _ = cv.Rodrigues(rotation_matrix)
     
     # gripper 2 base
@@ -43,7 +43,7 @@ def getrobotTransform(self,x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.nda
     
     return rvec_b2g, tvec_b2g
     
-def createAffine(self, r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
+def createAffine(r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
     R = []
     if r.shape == (3,1):
         R ,_  = cv.Rodrigues(r)
@@ -54,14 +54,14 @@ def createAffine(self, r : np.ndarray, tvec : np.ndarray) -> np.ndarray:
     affine_matrix[:3, 3] = tvec.reshape(3)
     return affine_matrix
 
-def inverseAffine(self, affine_matrix:np.ndarray):
+def inverseAffine(affine_matrix:np.ndarray):
     R = affine_matrix[:3, :3]
     tvec = affine_matrix[:3, 3]
     inv_R = np.transpose(R)
     inv_t = - inv_R @ tvec
-    return self.createAffine(inv_R,inv_t)
+    return createAffine(inv_R,inv_t)
 
-def getArucoPosition(self, num_id,camera_matrix, ids, corners):
+def getArucoPosition( num_id,camera_matrix, ids, corners):
     size = 24
     obj_points = []
     obj_points =np.append(obj_points,np.array([0,0,0]))
@@ -71,7 +71,7 @@ def getArucoPosition(self, num_id,camera_matrix, ids, corners):
     obj_points = obj_points.reshape(4,3)
     if num_id in np.ravel(ids) :
         _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
-        return self.createAffine(rvec,tvec)
+        return createAffine(rvec,tvec)
     else :
         return None
     
