@@ -6,9 +6,9 @@ def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
     """convert Eular Angle in degrees to Rotation Matrix
 
     Args:
-        roll (double): _description_
-        pitch (double): _description_
-        yaw (double): _description_
+        roll (double): radian
+        pitch (double): radian
+        yaw (double): radian
 
     Returns:
         np.ndarray: 3x3 rotation matrix
@@ -25,9 +25,17 @@ def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
                         [np.sin(roll), np.cos(roll), 0],
                         [0, 0, 1]])
 
-    rotation_matrix = rotation_z.dot(rotation_y).dot(rotation_x)
+    rotation_matrix = rotation_x.dot(rotation_y).dot(rotation_z)
 
-    return rotation_matrix      
+    return rotation_matrix 
+
+def rotation_matrix_to_euler_angles(R):
+    yaw = math.atan2(R[2, 1], R[2, 2])
+    pitch = math.atan2(-R[2, 0], math.sqrt(R[2, 1]**2 + R[2, 2]**2))
+    roll = math.atan2(R[1, 0], R[0, 0])
+
+    return roll, pitch, yaw
+
 def getrobotTransform(x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
     
     # gripper rotation
@@ -75,6 +83,16 @@ def getArucoPosition( num_id,camera_matrix, ids, corners):
     else :
         return None
     
-# ! this func is no need
-# def c2g(self,rotationMatrix,TranslationVector):
-#     return self.createAffine(rotationMatrix,TranslationVector)
+if __name__ == '__main__':
+    rotationMatrix = np.array([[ 0.15270852,  0.07282495 , 0.98558441],
+ [ 0.48849825,  0.86136814 ,-0.13933554],
+ [-0.85909811,  0.50273398 , 0.09596339]])
+    print(rotationMatrix)
+    a = rotation_matrix_to_euler_angles(rotationMatrix)
+    print(np.degrees(a))
+    b = euler_to_rotmat(*a)
+    print(b)
+
+#         self.translationVector = np.array([[  76.93516569],
+#  [  59.83190353],
+#  [-172.75037391]])
