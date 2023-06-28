@@ -166,6 +166,7 @@ class HandEyeCalibration:
         while (keeploopalive):
             frame = []
             while(1):
+                camera = Camera()
                 _,frame,_ = camera.get_frame_stream()
                 cv.imshow("windows",frame)
                 k = cv.waitKey(50)
