@@ -14,15 +14,15 @@ def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
         np.ndarray: 3x3 rotation matrix
     """        
     rotation_x = np.array([[1, 0, 0],
-                        [0, np.cos(yaw), -np.sin(yaw)],
-                        [0, np.sin(yaw), np.cos(yaw)]])
+                        [0, np.cos(roll), -np.sin(roll)],
+                        [0, np.sin(roll), np.cos(roll)]])
 
     rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
                         [0, 1, 0],
                         [-np.sin(pitch), 0, np.cos(pitch)]])
 
-    rotation_z = np.array([[np.cos(roll), -np.sin(roll), 0],
-                        [np.sin(roll), np.cos(roll), 0],
+    rotation_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                        [np.sin(yaw), np.cos(yaw), 0],
                         [0, 0, 1]])
 
     rotation_matrix = rotation_x.dot(rotation_y).dot(rotation_z)
@@ -30,10 +30,9 @@ def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
     return rotation_matrix 
 
 def rotation_matrix_to_euler_angles(R):
-    yaw = math.atan2(R[2, 1], R[2, 2])
+    roll = math.atan2(R[2, 1], R[2, 2])
     pitch = math.atan2(-R[2, 0], math.sqrt(R[2, 1]**2 + R[2, 2]**2))
-    roll = math.atan2(R[1, 0], R[0, 0])
-
+    yaw = math.atan2(R[1, 0], R[0, 0])
     return roll, pitch, yaw
 
 def getrobotTransform(x, y ,z,roll , pitch ,yaw) -> tuple[np.ndarray,np.ndarray]:
@@ -78,7 +77,10 @@ def getArucoPosition( num_id,camera_matrix, ids, corners):
     obj_points =np.append(obj_points,np.array([0,size,0]))
     obj_points = obj_points.reshape(4,3)
     if num_id in np.ravel(ids) :
-        _, rvec, tvec = cv.solvePnP(obj_points,corners[num_id-1][0], camera_matrix, np.array([0,0,0,0,0]))
+        _, rvec, tvec = cv.solvePnP(obj_points,corners[int(np.where(ids == num_id)[0])][0], camera_matrix, np.array([0,0,0,0,0]))
+        print("Rt")
+        print(rvec)
+        print(tvec)
         return createAffine(rvec,tvec)
     else :
         return None

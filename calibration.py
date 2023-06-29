@@ -67,43 +67,59 @@ class HandEyeCalibration:
             # aff_t2c = createAffine(rvec_t2c, tvec_t2c)
             # rotmat_t2c = aff_t2c[:3, :3]
             # tvec_t2c = aff_t2c[:3, 3]
-            print("t2c", rvec_t2c,tvec_t2c) 
+            # print("t2c", rvec_t2c,tvec_t2c) 
             
             # * get gripper 2 base
-            rvec_b2g, tvec_b2g = getrobotTransform(*(arm_positions[i]))
-            aff_g2b = inverseAffine(createAffine(rvec_b2g, tvec_b2g))
-            rotmat_g2b = aff_g2b[:3, :3]
-            tvec_g2b = aff_g2b[:3, 3]
+            rvec_g2b, tvec_g2b = getrobotTransform(*(arm_positions[i]))
+            # aff_g2b = inverseAffine(createAffine(rvec_b2g, tvec_b2g))
+            # rotmat_g2b = aff_g2b[:3, :3]
+            # tvec_g2b = aff_g2b[:3, 3]
             
             # * gather to RVEC TVEC
             ROTMAT_t2c = np.append(ROTMAT_t2c,rvec_t2c)
             TVEC_t2c = np.append(TVEC_t2c,tvec_t2c)
-            ROTMAT_g2b = np.append(ROTMAT_g2b,rotmat_g2b)
+            ROTMAT_g2b = np.append(ROTMAT_g2b,rvec_g2b)
             TVEC_g2b = np.append(TVEC_g2b,tvec_g2b)
             
         count = len(img_points)
         ROTMAT_t2c = ROTMAT_t2c.reshape(count,3,1)
         TVEC_t2c = TVEC_t2c.reshape(count,3,1)
-        ROTMAT_g2b = ROTMAT_g2b.reshape(count,3,3)
+        ROTMAT_g2b = ROTMAT_g2b.reshape(count,3,1)
         TVEC_g2b = TVEC_g2b.reshape(count,3,1)
+
+        # ####
+        # R_base2gripper = []
+        # t_base2gripper = []
+        # for Ro, t in zip(ROTMAT_g2b , TVEC_g2b):
+        #     print(Ro)
+        #     R_b2g = np.transpose(Ro)
+        #     t_b2g = -R_b2g @ t
+        #     R_base2gripper.append(R_b2g)
+        #     t_base2gripper.append(t_b2g)
+
+        # ROTMAT_g2b = R_base2gripper
+        # TVEC_g2b = t_base2gripper
+        # ####
+
+        
         # cam 2 gripper 
         rotationMatrix, translationVector = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =cv.CALIB_HAND_EYE_DANIILIDIS)
         print("calibrate methods result")
         a, b = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =0)
-        print(a, b)
-        print(np.degrees(rotation_matrix_to_euler_angles(a)))
+        print("method0",a, b)
+        print("degrees",np.degrees(rotation_matrix_to_euler_angles(a)))
         a, b = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =1)
-        print(a, b)
-        print(np.degrees(rotation_matrix_to_euler_angles(a)))
+        print("method1",a, b)
+        print("degrees",np.degrees(rotation_matrix_to_euler_angles(a)))
         a, b = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =2)
-        print(a, b)
-        print(np.degrees(rotation_matrix_to_euler_angles(a)))
+        print("method2",a, b)
+        print("degrees",np.degrees(rotation_matrix_to_euler_angles(a)))
         a, b = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =3)
-        print(a, b)
-        print(np.degrees(rotation_matrix_to_euler_angles(a)))
+        print("method3",a, b)
+        print("degrees",np.degrees(rotation_matrix_to_euler_angles(a)))
         a, b = cv.calibrateHandEye(ROTMAT_g2b,TVEC_g2b,ROTMAT_t2c,TVEC_t2c,method =4)
-        print(a, b)
-        print(np.degrees(rotation_matrix_to_euler_angles(a)))
+        print("method4",a, b)
+        print("degrees",np.degrees(rotation_matrix_to_euler_angles(a)))
         print("------------------")
         return createAffine(rotationMatrix, translationVector)
     
@@ -145,7 +161,7 @@ class HandEyeCalibration:
         with open('images/img_position.pkl', "wb") as file:
             pkl.dump(image_points_list, file)
         with open('images/arm_position.pkl', "wb") as file:
-                pkl.dump(arm_positions_list, file)
+            pkl.dump(arm_positions_list, file)
         
         self.c2g = self.calculate_c2g(image_points_list, arm_positions_list)
         print(self.c2g)
@@ -166,8 +182,8 @@ class HandEyeCalibration:
         while (keeploopalive):
             frame = []
             while(1):
-                camera = Camera()
-                _,frame,_ = camera.get_frame_stream()
+
+                _,frame,_ = self.camera.get_frame_stream()
                 cv.imshow("windows",frame)
                 k = cv.waitKey(50)
                 if k == ord('s'):
@@ -177,23 +193,25 @@ class HandEyeCalibration:
                     print('Pressed : q')
                     keeploopalive = 0
                     break
-                found ,img_points = cv.findCirclesGrid(frame, self.pattern_size ,flags=cv.CALIB_CB_SYMMETRIC_GRID +cv.CALIB_CB_CLUSTERING)
-                if not found: 
-                    print("img point not found ")
-                    continue
-                img_points = np.array(img_points)
-                if len(img_points) != len(self.obj_points):
-                    print("not equal ")
-                    continue
-                image_points_list.append(img_points)
-                arm_positions_list.append(self.arm.get_position()[1])
+            found ,img_points = cv.findCirclesGrid(frame, self.pattern_size ,flags=cv.CALIB_CB_SYMMETRIC_GRID +cv.CALIB_CB_CLUSTERING)
+            if not found: 
+                print("img point not found ")
+                continue
+            img_points = np.array(img_points)
+            if len(img_points) != len(self.obj_points):
+                print("not equal ")
+                continue
+            image_points_list.append(img_points)
+            arm_positions_list.append(self.arm.get_position()[1])
             
         self.c2g = self.calculate_c2g(image_points_list, arm_positions_list)
         print(self.c2g)
+        print("Press y to save calibration")
         key = cv.waitKey(-1)
         if key == ord('y'):
             with open(self.filename, "wb") as file:
                 pkl.dump(self.c2g, file)
+            print("save")
     
     def getcalibration(self) -> np.ndarray:
         if self.c2g is None:
@@ -204,6 +222,7 @@ class HandEyeCalibration:
 if __name__ == '__main__':
     calibration = HandEyeCalibration()
     #calibration.recordpattern()
-    calibration.autocalibrate() 
+    # calibration.autocalibrate() 
+    calibration.calibrate() 
     # c2g = calibration.getcalibration()
     # print(c2g)

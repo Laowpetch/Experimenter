@@ -29,18 +29,19 @@ if __name__ == '__main__':
                     c2t = inverseAffine(t2c)
                     c2t = c2t[:, 3]
                     
-                    b2g = createAffine(*getrobotTransform(*(arm.get_position()[1])))
+                    g2b = createAffine(*getrobotTransform(*(arm.get_position()[1])))
                     # print("b2g",self.b2g)
-                    g2b = inverseAffine(b2g)
+                    #b2g = inverseAffine(b2g)
                     g2c = inverseAffine(c2g) 
                     # print("b2c",self.b2c)
                     print("g2t",g2c @ c2t)
-                    result_position =  b2g @ (g2c @ c2t)
+                    result_position =  g2b @ (g2c @ t2c)
                     cv.displayOverlay("window",str(result_position))                 
                     print("result_position",result_position)
-                    
+                    cv.drawFrameAxes( frame, camMatrix, np.array([0,0,0,0,0],np.float64).reshape(1,5), cv.Rodrigues(t2c[:3,:3])[0], t2c[:3,3], length=10 ) 
                     # self.arm.grabfromabove(self.result_position[:3, 3])
-                frame = cv.aruco.drawDetectedMarkers(frame, corners,ids)         
+                frame = cv.aruco.drawDetectedMarkers(frame, corners,ids)     
+                
         cv.imshow("window",frame)
         key = cv.waitKey(10)
         if key == ord('q'):
