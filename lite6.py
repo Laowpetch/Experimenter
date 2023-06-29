@@ -8,9 +8,17 @@ class Manipulator():
         self.arm.set_mode(0)
         self.arm.set_state(state=0)
 
-    def grabfromabove(self,objectposition):
-        print('grabing')
-        self.arm.set_position(objectposition[0],objectposition[1],objectposition[2]+150,roll=180,pitch=0,yaw=90,speed=50,wait=True)
+    def grabfromabove(self,x,y,z):
+        self.arm.open_lite6_gripper()
+        self.arm.set_position(x,y,z,roll=180,pitch=0,yaw=90,speed=50,wait=True)
+        self.arm.close_lite6_gripper()
+        time.sleep(5)
+        self.arm.set_position(x,y,z+75,roll=180,pitch=0,yaw=90,speed=50,wait=True)
+        time.sleep(5)
+        self.arm.set_position(x,y,z,roll=180,pitch=0,yaw=90,speed=50,wait=True)
+        self.arm.open_lite6_gripper()
+        time.sleep(5)
+        self.arm.stop_lite6_gripper()
         
     def set_position(self,x, y ,z,roll , pitch ,yaw):
         self.arm.set_position(x, y ,z,roll , pitch ,yaw,speed=30,wait=True)
@@ -20,7 +28,7 @@ class Manipulator():
         return self.arm.get_position()
 
     def ready(self):
-        self.arm.set_position(x=200,y=0,z=200.1,roll=180,pitch=0,yaw=0,speed=50,wait=True)
+        self.arm.set_position(x=89.4,y=298.7,z=305.8,roll=180,pitch=0,yaw=90,speed=50,wait=True)
     
     def reset(self):
         self.arm.reset(speed=50)

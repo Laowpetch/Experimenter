@@ -30,6 +30,13 @@ class Lite6Interface():
         arm.reset(wait=True)
         arm.disconnect()
 
+    def test_1(self):
+        # arm.reset(wait=True)
+        # arm.set_tool_position(x=120, y=130, z=100, roll=90, pitch=0, yaw=0, speed=50, wait=True)
+        arm.set_position(x=120, y=330, z=300, roll=180, pitch=0, yaw=90, speed=50, wait=True)
+        print(arm.get_position(), arm.get_position(is_radian=True))
+        arm.disconnect()
+
     def pouring_1(self):
         self.ready()
         time.sleep(5)
@@ -82,4 +89,6 @@ def main(args=None):
     node.reset()
 
 if __name__ == '__main__':
-    main()
+    node = Lite6Interface()
+    node.test_1()
+    

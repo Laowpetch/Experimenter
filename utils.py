@@ -2,6 +2,31 @@ import cv2 as cv
 import numpy as np
 import math
 
+def isRotationMatrix(R) :
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype = R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < 1e-6
+ 
+def rotationMatrixToEulerAngles(R) :
+ 
+    assert(isRotationMatrix(R))
+ 
+    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+ 
+    singular = sy < 1e-6
+ 
+    if  not singular :
+        x = math.atan2(R[2,1] , R[2,2])
+        y = math.atan2(-R[2,0], sy)
+        z = math.atan2(R[1,0], R[0,0])
+    else :
+        x = math.atan2(-R[1,2], R[1,1])
+        y = math.atan2(-R[2,0], sy)
+        z = 0
+
+    return np.array([x, y, z])
 def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
     """convert Eular Angle in degrees to Rotation Matrix
 
@@ -25,8 +50,7 @@ def euler_to_rotmat(roll, pitch, yaw) -> np.ndarray:
                         [np.sin(yaw), np.cos(yaw), 0],
                         [0, 0, 1]])
 
-    rotation_matrix = rotation_x.dot(rotation_y).dot(rotation_z)
-
+    rotation_matrix = (rotation_z @ rotation_y) @ rotation_x
     return rotation_matrix 
 
 def rotation_matrix_to_euler_angles(R):
